@@ -1,6 +1,6 @@
 /* eslint-disable no-bitwise */
 import { useMemo, useState } from "react";
-import { PermissionsAndroid, Platform } from "react-native";
+import { PermissionsAndroid, Platform, Vibration } from "react-native";
 
 import * as ExpoDevice from "expo-device";
 
@@ -25,8 +25,8 @@ function useBLE() {
   const [allDevices, setAllDevices] = useState<Device[]>([]);
   const [connectedDevice, setConnectedDevice] = useState<Device | null>(null);
   const [color, setColor] = useState("white");
-  const [characteristicUUID, setCharacteristicUUID] = useState<string | null>(null);
-  const [serviceUUID, setServiceUUID] = useState<string | null>(null);
+  const [tfDistance, settfDistance] = useState<number | null>(null); // Add state for tfDistance
+
 
   const requestAndroid31Permissions = async () => {
     const bluetoothScanPermission = await PermissionsAndroid.request(
@@ -84,31 +84,15 @@ function useBLE() {
     }
   };
 
-  const getServicesAndCharacteristics = async (device: Device) => {
-    const services = await device.services();
-    for (const service of services) {
-      const characteristics = await service.characteristics();
-      for (const characteristic of characteristics) {
-        if (characteristic.isWritableWithoutResponse || characteristic.isWritableWithResponse) {
-          setServiceUUID(service.uuid);
-          setCharacteristicUUID(characteristic.uuid);
-          return characteristic;
-        }
-      }
-    }
-    throw new Error("No writable characteristic found");
-  };
-
-
   const connectToDevice = async (device: Device) => {
     try {
       const deviceConnection = await bleManager.connectToDevice(device.id);
       setConnectedDevice(deviceConnection);
       await deviceConnection.discoverAllServicesAndCharacteristics();
       bleManager.stopDeviceScan();
-      const characteristic = await getServicesAndCharacteristics(deviceConnection);
       startStreamingData(deviceConnection);
-      console.log(`Connected to device with characteristic UUID: ${characteristic.uuid}`);
+      writeToDevice("1", deviceConnection);
+ 
     } catch (e) {
       console.log("FAILED TO CONNECT", e);
     }
@@ -117,24 +101,34 @@ function useBLE() {
   const isDuplicteDevice = (devices: Device[], nextDevice: Device) =>
     devices.findIndex((device) => nextDevice.id === device.id) > -1;
 
-  const scanForPeripherals = () =>
-    bleManager.startDeviceScan(null, null, (error, device) => {
-      if (error) {
-        console.log(error);
-      }
-
-      if (
-        device &&
-        (device.localName === "BlueNRG" || device.name === "BLueNRG")
-      ) {
-        setAllDevices((prevState: Device[]) => {
-          if (!isDuplicteDevice(prevState, device)) {
-            return [...prevState, device];
-          }
-          return prevState;
-        });
-      }
+  const scanForPeripherals = (): Promise<Device | null> => {
+    return new Promise((resolve, reject) => {
+      bleManager.startDeviceScan(null, null, (error, device) => {
+        if (error) {
+          console.log(error);
+          reject(error);
+          return;
+        }
+  
+        if (device && (device.localName === "BlueNRG" || device.name === "BlueNRG")) {
+          setAllDevices((prevState: Device[]) => {
+            if (!isDuplicteDevice(prevState, device)) {
+              return [...prevState, device];
+            }
+            return prevState;
+          });
+          bleManager.stopDeviceScan();
+          resolve(device);
+        }
+      });
+  
+      // Stop scanning after a timeout period
+      setTimeout(() => {
+        bleManager.stopDeviceScan();
+        resolve(null);
+      }, 10000); // 10 seconds timeout
     });
+  };
 
   const onDataUpdate = (
         error: BleError | null,
@@ -147,33 +141,31 @@ function useBLE() {
             console.log("No Data was received");
             return;
         }
+        
 
-        // Remove the last two elements from characteristic.value
-        const trimmedValue = characteristic.value.slice(0, -2);
-        console.log("Data received", trimmedValue);
-
-        const decodedString = base64.decode(trimmedValue).trim();
-        console.log("Decoded String:", decodedString);
-        console.log("Type of Decoded String:", typeof decodedString);
-        console.log("Length of Decoded String:", decodedString.length);
-
+        const decodedString = base64.decode( characteristic.value).trim();
+       // console.log("Decoded String:", decodedString);
+   
         // Convert the decoded string to an integer
-        const colorCode = parseInt(decodedString, 10);
-        console.log("Color Code:", colorCode);
-        console.log("Color Code Comparison:", colorCode === 1);
+        const tfDistance = parseInt(decodedString, 10);
+      //  console.log("Color Code:", tfDistance);
 
 
         let color = "white";
-        if (colorCode === 1) {
+        if (tfDistance === 1) {
             color = "blue";
-        } else if (colorCode === 2) {
+        } else if (tfDistance === 2) {
             color = "red";
             console.log("red");
-        } else if (colorCode === 3) {
+        } else if (tfDistance === 3) {
             color = "green";
         }
-
+        settfDistance(tfDistance);
         setColor(color);
+
+        if (tfDistance < 50) {
+          Vibration.vibrate(400);
+        }
     };
 
    const startStreamingData = async (device: Device) => {
@@ -214,16 +206,16 @@ function useBLE() {
 
     
 
-    const writeToDevice = async (message: string) => {
-      if (!connectedDevice) {
-        console.log("No device connected");
+    const writeToDevice = async (message: string, device: Device) => {
+      if (!device) {
+        console.log("No device connected", connectedDevice);
         return;
       }
 
       const encodedMessage = base64.encode(message);
       
       try {
-        await connectedDevice.writeCharacteristicWithoutResponseForService(
+        await device.writeCharacteristicWithoutResponseForService(
           DATA_SERVICE_UUID,
           RX_CHARACTERISTIC_UUID2,
           encodedMessage
@@ -246,6 +238,7 @@ function useBLE() {
         console.log("Device disconnected");
       } catch (error) {
         console.log("Failed to disconnect device:", error);
+        Vibration.vibrate(500);
       }
     };
 
@@ -254,6 +247,7 @@ function useBLE() {
     allDevices,
     connectedDevice,
     color,
+    tfDistance,
     requestPermissions,
     scanForPeripherals,
     startStreamingData,

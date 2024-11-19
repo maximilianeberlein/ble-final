@@ -9,16 +9,24 @@
     "web": "expo start --web"
   },
   "dependencies": {
+    "@mapbox/mapbox-sdk": "^0.16.1",
+    "@rnmapbox/maps": "^10.1.33",
+    "@turf/turf": "^7.1.0",
     "convert-string": "^0.1.0",
     "expo": "~52.0.4",
     "expo-dev-client": "~5.0.1",
     "expo-device": "^7.0.1",
+    "expo-haptics": "~14.0.0",
+    "expo-location": "~18.0.1",
+    "expo-router": "^4.0.6",
+    "expo-speech": "~13.0.0",
+    "expo-speech-recognition": "^1.0.1",
     "expo-status-bar": "~2.0.0",
     "react": "18.3.1",
     "react-native": "0.76.1",
     "react-native-base64": "^0.2.1",
     "react-native-ble-plx": "^3.2.1",
-    "expo-haptics": "~14.0.0"
+    "expo-system-ui": "~4.0.3"
   },
   "devDependencies": {
     "@babel/core": "^7.25.2",

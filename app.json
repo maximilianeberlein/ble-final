@@ -5,7 +5,7 @@
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
-    "userInterfaceStyle": "light",
+    "userInterfaceStyle": "dark",
     "newArchEnabled": true,
     "splash": {
       "image": "./assets/splash-icon.png",
@@ -31,6 +31,14 @@
       "favicon": "./assets/favicon.png"
     },
     "plugins": [
+      "expo-router",
+      [
+        "@rnmapbox/maps",
+        {
+          "RNMapboxMapsDownloadToken": "sk.eyJ1IjoibWViZXJsZWluIiwiYSI6ImNtM2ViZGZiZzBib3kybHM4MnRwYm5xN3YifQ.KJ788bYfbvrOPKAn6V0kxQ",
+          "RNMapboxMapsVersion": "11.0.0"
+        }
+      ],
       [
         "react-native-ble-plx",
         {
@@ -41,7 +49,8 @@
           ],
           "bluetoothAlwaysPermission": "Allow $(PRODUCT_NAME) to connect to bluetooth devices"
         }
-      ]
+      ],
+      "expo-speech-recognition"
     ],
     "extra": {
       "eas": {
